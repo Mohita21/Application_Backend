@@ -439,22 +439,22 @@ def PredictSatImgs(date_start_str, date_end_str, output_type, county='santa_barb
 
     ### Obtaining forecasts ###
     if output_type == 'yield':
-        if h == 1: model = models.load_model('SatelliteModels/best_s2y_sm_1day.hdf5')
-        if h == 7: model = models.load_model('SatelliteModels/best_s2y_sm_1week.hdf5')
-        if h == 7 * 2: model = models.load_model('SatelliteModels/best_s2y_sm_2week.hdf5')
-        if h == 7 * 3: model = models.load_model('SatelliteModels/best_s2y_sm_3week.hdf5')
-        if h == 7 * 4: model = models.load_model('SatelliteModels/best_s2y_sm_4week.hdf5')
-        if h == 7 * 5: model = models.load_model('SatelliteModels/best_s2y_sm_5week.hdf5'); model2 = models.load_model(
-            'SatelliteModels/best_s2y_sm_sae_5week.hdf5')
+        if h == 1: model = models.load_model('../SatelliteModels/best_s2y_sm_1day.hdf5')
+        if h == 7: model = models.load_model('../SatelliteModels/best_s2y_sm_1week.hdf5')
+        if h == 7 * 2: model = models.load_model('../SatelliteModels/best_s2y_sm_2week.hdf5')
+        if h == 7 * 3: model = models.load_model('../SatelliteModels/best_s2y_sm_3week.hdf5')
+        if h == 7 * 4: model = models.load_model('../SatelliteModels/best_s2y_sm_4week.hdf5')
+        if h == 7 * 5: model = models.load_model('../SatelliteModels/best_s2y_sm_5week.hdf5'); model2 = models.load_model(
+            '../SatelliteModels/best_s2y_sm_sae_5week.hdf5')
 
     if output_type == 'price':
-        if h == 1: model = models.load_model('SatelliteModels/best_s2p_sm_1day.hdf5')
-        if h == 7: model = models.load_model('SatelliteModels/best_s2p_sm_1week.hdf5')
-        if h == 7 * 2: model = models.load_model('SatelliteModels/best_s2p_sm_2week.hdf5')
-        if h == 7 * 3: model = models.load_model('SatelliteModels/best_s2p_sm_3week.hdf5')
-        if h == 7 * 4: model = models.load_model('SatelliteModels/best_s2p_sm_4week.hdf5')
-        if h == 7 * 5: model = models.load_model('SatelliteModels/best_s2p_sm_5week.hdf5'); model2 = models.load_model(
-            'SatelliteModels/best_s2p_sm_sae_5week.hdf5')
+        if h == 1: model = models.load_model('../SatelliteModels/best_s2p_sm_1day.hdf5')
+        if h == 7: model = models.load_model('../SatelliteModels/best_s2p_sm_1week.hdf5')
+        if h == 7 * 2: model = models.load_model('../SatelliteModels/best_s2p_sm_2week.hdf5')
+        if h == 7 * 3: model = models.load_model('../SatelliteModels/best_s2p_sm_3week.hdf5')
+        if h == 7 * 4: model = models.load_model('../SatelliteModels/best_s2p_sm_4week.hdf5')
+        if h == 7 * 5: model = models.load_model('../SatelliteModels/best_s2p_sm_5week.hdf5'); model2 = models.load_model(
+            '../SatelliteModels/best_s2p_sm_sae_5week.hdf5')
 
     # print(model.summary())
     preds = model.predict(lagged_hists)

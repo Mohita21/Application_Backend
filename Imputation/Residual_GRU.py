@@ -2,7 +2,7 @@
 import numpy as np
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
-import reader
+from Imputation import reader
 import os
 import random
 import sys

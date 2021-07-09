@@ -1,14 +1,10 @@
-from urllib.request import urlopen
 from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from dateutil.relativedelta import relativedelta
-import WebScraping as ws
-from statsmodels.tsa.api import ExponentialSmoothing
+from StationCodes import WebScraping as ws
 
-
-df=pd.read_excel("Soil_Mois_Temp_Imputed.xlsx")
+df=pd.read_excel("/Users/mohita/Documents/GitHub/Flask_app/Data/Soil_Mois_Temp_Imputed.xlsx")
 df.index=df["LST_DATE"]
 d=ws.scraping_current()
 d1=ws.impute_current(df,d)

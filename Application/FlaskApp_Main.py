@@ -1,28 +1,20 @@
 from datetime import datetime, timedelta
 import os
-from flask import Flask, render_template, request, jsonify
+from flask import jsonify
 from flask_cors import CORS, cross_origin
 import logging
-import Att_CNN_LSTM as acl1
+from Station_Training import Att_CNN_LSTM as acl1
 import matplotlib.pyplot as plt
-import Data_preprocessing as dp
 import pandas as pd
 import numpy as np
 #import Att_Conv_LSTM1 as acl2
-import pickle
-from flask import Flask, render_template,request
-import MoisTempDateRange as mt
+from flask import Flask, request
 #from sklearn.externals import joblib
 import joblib
-import Satellite as sat
-from flask import send_file
-import SimilarityCheck as simcheck
-import Detailed_Analysis as analysis
-import Transfer_learning as TL
-import Transfer_Learning_Sat as TL_sat
-import Transfer_Learning_Sat2 as TL_sat2
-import Saad_Analysis as SA
-import Saad_chunks as SC
+from SimilarityCodes import SimilarityCheck as simcheck
+from StationCodes import Transfer_learning as TL, MoisTempDateRange as mt
+from SatelliteCodes import Transfer_Learning_Sat as TL_sat, Transfer_Learning_Sat2 as TL_sat2, Satellite as sat
+from Imputation import Saad_Analysis as SA, Saad_chunks as SC
 
 n=12
 model_lime_cnn_lstm_att = acl1.model(n)
@@ -308,7 +300,7 @@ def ChunkImputation():
     cf=SC.merger(val2,val1)
     SC.Imputer(cf)
     dff=[]
-    df=pd.read_excel("Transfer Learning Results.xls")
+    df=pd.read_excel("/Users/mohita/Documents/GitHub/Flask_app/Data/Transfer Learning Results.xls")
     df=df["Imputed"]
     for i in range(len(df)):
         dff.append([df[i]])
@@ -361,8 +353,8 @@ def univariate_impute():
     df= pd.DataFrame(val)
     plt.plot(df)
     plt.show()
-    df.to_csv('miss_data.csv',index=None,header=None)
-    row = pd.read_csv('miss_data.csv', sep='\t', header=None).shape[0]
+    df.to_csv('Data/miss_data.csv',index=None,header=None)
+    row = pd.read_csv('../Data/miss_data.csv', sep='\t', header=None).shape[0]
     steps = 34
     batch = 21
     prime_batch = prime_numbers(batch)
@@ -395,10 +387,10 @@ def univariate_impute():
     print('steps', steps)
     FLAGS = None
     #exec(open('Residual_GRU.py').read())
-    run = f'python Residual_GRU.py {steps} {batch}'
+    run = f'python Imputation/Residual_GRU.py {steps} {batch}'
     os.system(run)
     #os.system('python Residual_GRU.py {steps} {batch}')
-    df=pd.read_excel("imputed data Residual.xlsx")
+    df=pd.read_excel("Data/imputed data Residual.xlsx")
     #df=df.values
     plt.plot(df)
     plt.show()
@@ -491,7 +483,7 @@ def SimilarityCheck():
 def SimilarOutputPrice():
     data = request.get_json()
     if len(data) ==2:
-        y11 = pd.read_csv("Strawberry_Price.csv")
+        y11 = pd.read_csv("Data/Strawberry_Price.csv")
         d1 = y11["Date"]
         y1 = y11["Strawberry"]
         y1 = y1.tolist()
@@ -503,7 +495,7 @@ def SimilarOutputPrice():
         print(percentage,binary_check)
         return jsonify({'message': percentage, 'binary_value': binary_check})
     if len(data)>2:
-        y11 = pd.read_csv("Strawberry_Price.csv")
+        y11 = pd.read_csv("Data/Strawberry_Price.csv")
         d1 = y11["Date"]
         y1 = y11["Strawberry"]
         y1 = y1.tolist()
@@ -513,7 +505,7 @@ def SimilarOutputPrice():
         y1, y2, dates = simcheck.Common_Yield_Window(d1, d2, y1, y2)
         percentage, binary_check = simcheck.Similarity_Output(y1, y2, dates)
         print(percentage,binary_check)
-        c1 = pd.read_excel("County_similarity.xlsx")
+        c1 = pd.read_excel("Data/County_similarity.xlsx")
         a = data[2]
         b = data[3]
         #print(a)
@@ -536,7 +528,7 @@ def SimilarOutputPrice():
 def SimilarOutput():
     data = request.get_json()
     if len(data) ==2:
-        y11 = pd.read_csv("Strawberry_Yield.csv")
+        y11 = pd.read_csv("Data/Strawberry_Yield.csv")
         d1 = y11["Date"]
         y1 = y11["Strawberry"]
         y1 = y1.tolist()
@@ -551,7 +543,7 @@ def SimilarOutput():
         print(percentage,binary_check)
         return jsonify({'message': percentage, 'binary_value': binary_check})
     if len(data)>2:
-        y11 = pd.read_csv("Strawberry_Yield.csv")
+        y11 = pd.read_csv("Data/Strawberry_Yield.csv")
         d1 = y11["Date"]
         y1 = y11["Strawberry"]
         y1 = y1.tolist()
@@ -561,7 +553,7 @@ def SimilarOutput():
         y1, y2, dates = simcheck.Common_Yield_Window(d1, d2, y1, y2)
         percentage, binary_check = simcheck.Similarity_Output(y1, y2, dates)
         print(percentage,binary_check)
-        c1 = pd.read_excel("County_similarity.xlsx")
+        c1 = pd.read_excel("Data/County_similarity.xlsx")
         a = data[2]
         b = data[3]
         #print(a)
@@ -606,7 +598,7 @@ def TransferLearningOp():
                 print(preds)
                 return jsonify({'result':preds, 'dates':dat})
             if mtt=='Station':
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_1D.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_1D.hdf5"
                 prediction=TL.TL_out(model_lime_cnn_lstm_att,weight_path,test,y1,n)
                 return jsonify({'result':prediction, 'dates':dat})
             if mtt=='Combined':
@@ -615,7 +607,7 @@ def TransferLearningOp():
                 print(d_frame)
                 d_frame=d_frame.iloc[1532:,:]
                 preds=TL_sat.SatImgsTask2(sd, ed, output_type='yield', output_list=d_frame, county_name='santa_barbara', horizon=0)
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_1D.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_1D.hdf5"
                 prediction=TL.TL_out(model_lime_cnn_lstm_att,weight_path,test,y1,n)
                 final_pred=[float(preds[i])+float(prediction[i]) for i in range(len(preds))]
                 pred_final = [x / 2 for x in final_pred]
@@ -631,7 +623,7 @@ def TransferLearningOp():
                 print(preds)
                 return jsonify({'result':preds, 'dates':dat})
             if mtt=='Station':
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_1W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_1W.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 return jsonify({'result':prediction, 'dates':dat})
             if mtt=='Combined':
@@ -640,7 +632,7 @@ def TransferLearningOp():
                 print(d_frame)
                 d_frame = d_frame.iloc[1532:, :]
                 preds=TL_sat.SatImgsTask2(sd, ed, output_type='yield', output_list=d_frame, county_name='santa_barbara', horizon=1)
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_1W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_1W.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 final_pred=[float(preds[i])+float(prediction[i]) for i in range(len(preds))]
                 pred_final = [x / 2 for x in final_pred]
@@ -656,7 +648,7 @@ def TransferLearningOp():
                 print(preds)
                 return jsonify({'result':preds, 'dates':dat})
             if mtt=='Station':
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_2W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_2W.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 return jsonify({'result':prediction, 'dates':dat})
             if mtt=='Combined':
@@ -666,7 +658,7 @@ def TransferLearningOp():
                 d_frame = d_frame.iloc[1532:, :]
                 preds=TL_sat.SatImgsTask2(sd, ed, output_type='yield', output_list=d_frame, county_name='santa_barbara', horizon=2)
                 print(preds)
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_2W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_2W.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 final_pred=[float(preds[i])+float(prediction[i]) for i in range(len(preds))]
                 pred_final = [x / 2 for x in final_pred]
@@ -682,7 +674,7 @@ def TransferLearningOp():
                 print(preds)
                 return jsonify({'result':preds, 'dates':dat})
             if mtt=='Station':
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_3W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_3W.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 return jsonify({'result':prediction, 'dates':dat})
             if mtt=='Combined':
@@ -692,7 +684,7 @@ def TransferLearningOp():
                 d_frame = d_frame.iloc[1532:, :]
                 preds=TL_sat.SatImgsTask2(sd, ed, output_type='yield', output_list=d_frame, county_name='santa_barbara', horizon=3)
                 print(preds)
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_3W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_3W.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 final_pred=[float(preds[i])+float(prediction[i]) for i in range(len(preds))]
                 pred_final = [x / 2 for x in final_pred]
@@ -708,7 +700,7 @@ def TransferLearningOp():
                 print(preds)
                 return jsonify({'result':preds, 'dates':dat})
             if mtt=='Station':
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_4W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_4W.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 return jsonify({'result':prediction, 'dates':dat})
             if mtt=='Combined':
@@ -718,7 +710,7 @@ def TransferLearningOp():
                 d_frame = d_frame.iloc[1532:, :]
                 preds=TL_sat.SatImgsTask2(sd, ed, output_type='yield', output_list=d_frame, county_name='santa_barbara', horizon=4)
                 print(preds)
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_4W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_4W.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 final_pred=[float(preds[i])+float(prediction[i]) for i in range(len(preds))]
                 pred_final = [x / 2 for x in final_pred]
@@ -734,7 +726,7 @@ def TransferLearningOp():
                 print(preds)
                 return jsonify({'result':preds, 'dates':dat})
             if mtt=='Station':
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_5W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_5W.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 return jsonify({'result':prediction, 'dates':dat})
             if mtt=='Combined':
@@ -744,7 +736,7 @@ def TransferLearningOp():
                 d_frame = d_frame.iloc[1532:, :]
                 preds=TL_sat.SatImgsTask2(sd, ed, output_type='yield', output_list=d_frame, county_name='santa_barbara', horizon=5)
                 print(preds)
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_5W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_5W.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 final_pred=[float(preds[i])+float(prediction[i]) for i in range(len(preds))]
                 pred_final = [x / 2 for x in final_pred]
@@ -761,7 +753,7 @@ def TransferLearningOp():
                 print(preds)
                 return jsonify({'result':preds, 'dates':dat})
             if mtt=='Station':
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_1D.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_1D.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 return jsonify({'result':prediction, 'dates':dat})
             if mtt=='Combined':
@@ -771,7 +763,7 @@ def TransferLearningOp():
                 print(d_frame)
                 preds=TL_sat.SatImgsTask2(sd, ed, output_type='price', output_list=d_frame, county_name='santa_barbara', horizon=0)
                 print(preds)
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_1D.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_1D.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 final_pred=[float(preds[i])+float(prediction[i]) for i in range(len(preds))]
                 pred_final = [x / 2 for x in final_pred]
@@ -787,7 +779,7 @@ def TransferLearningOp():
                 print(preds)
                 return jsonify({'result':preds, 'dates':dat})
             if mtt=='Station':
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_1W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_1W.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 return jsonify({'result':prediction, 'dates':dat})
             if mtt=='Combined':
@@ -797,7 +789,7 @@ def TransferLearningOp():
                 print(d_frame)
                 preds=TL_sat.SatImgsTask2(sd, ed, output_type='price', output_list=d_frame, county_name='santa_barbara', horizon=1)
                 print(preds)
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_1W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_1W.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 final_pred=[float(preds[i])+float(prediction[i]) for i in range(len(preds))]
                 pred_final = [x / 2 for x in final_pred]
@@ -813,7 +805,7 @@ def TransferLearningOp():
                 print(preds)
                 return jsonify({'result':preds, 'dates':dat})
             if mtt=='Station':
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_2W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_2W.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 return jsonify({'result':prediction, 'dates':dat})
             if mtt=='Combined':
@@ -823,7 +815,7 @@ def TransferLearningOp():
                 print(d_frame)
                 preds=TL_sat.SatImgsTask2(sd, ed, output_type='price', output_list=d_frame, county_name='santa_barbara', horizon=2)
                 print(preds)
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_2W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_2W.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 final_pred=[float(preds[i])+float(prediction[i]) for i in range(len(preds))]
                 pred_final = [x / 2 for x in final_pred]
@@ -839,7 +831,7 @@ def TransferLearningOp():
                 print(preds)
                 return jsonify({'result':preds, 'dates':dat})
             if mtt=='Station':
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_3W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_3W.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 return jsonify({'result':prediction, 'dates':dat})
             if mtt=='Combined':
@@ -849,7 +841,7 @@ def TransferLearningOp():
                 print(d_frame)
                 preds=TL_sat.SatImgsTask2(sd, ed, output_type='price', output_list=d_frame, county_name='santa_barbara', horizon=3)
                 print(preds)
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_3W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_3W.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 final_pred=[float(preds[i])+float(prediction[i]) for i in range(len(preds))]
                 pred_final = [x / 2 for x in final_pred]
@@ -865,7 +857,7 @@ def TransferLearningOp():
                 print(preds)
                 return jsonify({'result':preds, 'dates':dat})
             if mtt=='Station':
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_4W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_4W.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 return jsonify({'result':prediction, 'dates':dat})
             if mtt=='Combined':
@@ -875,7 +867,7 @@ def TransferLearningOp():
                 print(d_frame)
                 preds=TL_sat.SatImgsTask2(sd, ed, output_type='price', output_list=d_frame, county_name='santa_barbara', horizon=4)
                 print(preds)
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_4W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_4W.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 final_pred=[float(preds[i])+float(prediction[i]) for i in range(len(preds))]
                 pred_final = [x / 2 for x in final_pred]
@@ -891,7 +883,7 @@ def TransferLearningOp():
                 print(preds)
                 return jsonify({'result':preds, 'dates':dat})
             if mtt=='Station':
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_5W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_5W.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 return jsonify({'result':prediction, 'dates':dat})
             if mtt=='Combined':
@@ -901,7 +893,7 @@ def TransferLearningOp():
                 print(d_frame)
                 preds=TL_sat.SatImgsTask2(sd, ed, output_type='price', output_list=d_frame, county_name='santa_barbara', horizon=5)
                 print(preds)
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_5W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_price_5W.hdf5"
                 prediction = TL.TL_out(model_lime_cnn_lstm_att, weight_path, test, y1, n)
                 final_pred=[float(preds[i])+float(prediction[i]) for i in range(len(preds))]
                 pred_final = [x / 2 for x in final_pred]
@@ -944,7 +936,7 @@ def TransferLearningIn():
                 print(preds)
                 return jsonify({'result':preds, 'dates':dat})
             if mtt=='Station':
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_1D.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_1D.hdf5"
                 prediction=TL.TL_in(model_lime_cnn_lstm_att,weight_path,test,y1,c2.iloc[:,:1],n)
                 return jsonify({'result':prediction, 'dates':dat})
             if mtt=='Combined':
@@ -954,7 +946,7 @@ def TransferLearningIn():
                 #d_frame = d_frame.iloc[1532:, :]
                 print("****************************",d_frame)
                 preds=TL_sat2.SatImgsTask3(sd, ed, output_type='yield', output_list=d_frame, county_name='santa_barbara',fips=fips, horizon=0)
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_1D.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_1D.hdf5"
                 prediction=TL.TL_in(model_lime_cnn_lstm_att,weight_path,test,y1,c2.iloc[:,:1],n)
                 final_pred=[float(preds[i])+float(prediction[i]) for i in range(len(preds))]
                 pred_final = [x / 2 for x in final_pred]
@@ -969,7 +961,7 @@ def TransferLearningIn():
                 print(preds)
                 return jsonify({'result':preds, 'dates':dat})
             if mtt=='Station':
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_1W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_1W.hdf5"
                 prediction = TL.TL_in(model_lime_cnn_lstm_att, weight_path, test, y1,c2.iloc[:,:1], n)
                 return jsonify({'result':prediction, 'dates':dat})
             if mtt=='Combined':
@@ -978,7 +970,7 @@ def TransferLearningIn():
                 #d_frame = d_frame.iloc[1532:, :]
                 preds = TL_sat2.SatImgsTask3(sd, ed, output_type='yield', output_list=d_frame,
                                              county_name='santa_barbara', fips=fips, horizon=1)
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_1W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_1W.hdf5"
                 prediction = TL.TL_in(model_lime_cnn_lstm_att, weight_path, test, y1,c2.iloc[:,:1], n)
                 final_pred=[float(preds[i])+float(prediction[i]) for i in range(len(preds))]
                 pred_final = [x / 2 for x in final_pred]
@@ -994,7 +986,7 @@ def TransferLearningIn():
                 print(preds)
                 return jsonify({'result':preds, 'dates':dat})
             if mtt=='Station':
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_2W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_2W.hdf5"
                 prediction=TL.TL_in(model_lime_cnn_lstm_att,weight_path,test,y1,c2.iloc[:,:1],n)
                 return jsonify({'result':prediction, 'dates':dat})
             if mtt=='Combined':
@@ -1003,7 +995,7 @@ def TransferLearningIn():
                 print(d_frame)
                 #d_frame = d_frame.iloc[1532:, :]
                 preds=TL_sat2.SatImgsTask3(sd, ed, output_type='yield', output_list=d_frame, county_name='santa_barbara',fips=fips, horizon=2)
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_2W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_2W.hdf5"
                 prediction=TL.TL_in(model_lime_cnn_lstm_att,weight_path,test,y1,c2.iloc[:,:1],n)
                 final_pred=[float(preds[i])+float(prediction[i]) for i in range(len(preds))]
                 pred_final = [x / 2 for x in final_pred]
@@ -1019,7 +1011,7 @@ def TransferLearningIn():
                 print(preds)
                 return jsonify({'result':preds, 'dates':dat})
             if mtt=='Station':
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_3W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_3W.hdf5"
                 prediction=TL.TL_in(model_lime_cnn_lstm_att,weight_path,test,y1,c2.iloc[:,:1],n)
                 return jsonify({'result':prediction, 'dates':dat})
             if mtt=='Combined':
@@ -1028,7 +1020,7 @@ def TransferLearningIn():
                 print(d_frame)
                 #d_frame = d_frame.iloc[1532:, :]
                 preds=TL_sat2.SatImgsTask3(sd, ed, output_type='yield', output_list=d_frame, county_name='santa_barbara',fips=fips, horizon=3)
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_3W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_3W.hdf5"
                 prediction=TL.TL_in(model_lime_cnn_lstm_att,weight_path,test,y1,c2.iloc[:,:1],n)
                 final_pred=[float(preds[i])+float(prediction[i]) for i in range(len(preds))]
                 pred_final = [x / 2 for x in final_pred]
@@ -1044,7 +1036,7 @@ def TransferLearningIn():
                 print(preds)
                 return jsonify({'result':preds, 'dates':dat})
             if mtt=='Station':
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_4W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_4W.hdf5"
                 prediction=TL.TL_in(model_lime_cnn_lstm_att,weight_path,test,y1,c2.iloc[:,:1],n)
                 return jsonify({'result':prediction, 'dates':dat})
             if mtt=='Combined':
@@ -1053,7 +1045,7 @@ def TransferLearningIn():
                 print(d_frame)
                 #d_frame = d_frame.iloc[1532:, :]
                 preds=TL_sat2.SatImgsTask3(sd, ed, output_type='yield', output_list=d_frame, county_name='santa_barbara',fips=fips, horizon=4)
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_4W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_4W.hdf5"
                 prediction=TL.TL_in(model_lime_cnn_lstm_att,weight_path,test,y1,c2.iloc[:,:1],n)
                 final_pred=[float(preds[i])+float(prediction[i]) for i in range(len(preds))]
                 pred_final = [x / 2 for x in final_pred]
@@ -1069,7 +1061,7 @@ def TransferLearningIn():
                 print(preds)
                 return jsonify({'result':preds, 'dates':dat})
             if mtt=='Station':
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_5W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_5W.hdf5"
                 prediction=TL.TL_in(model_lime_cnn_lstm_att,weight_path,test,y1,c2.iloc[:,:1],n)
                 return jsonify({'result':prediction, 'dates':dat})
             if mtt=='Combined':
@@ -1078,7 +1070,7 @@ def TransferLearningIn():
                 print(d_frame)
                 #d_frame = d_frame.iloc[1532:, :]
                 preds=TL_sat2.SatImgsTask3(sd, ed, output_type='yield', output_list=d_frame, county_name='santa_barbara',fips=fips, horizon=5)
-                weight_path="/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_5W.hdf5"
+                weight_path= "/Users/mohita/Documents/GitHub/Flask_app/TrainingWeights/weights_200_yield_5W.hdf5"
                 prediction=TL.TL_in(model_lime_cnn_lstm_att,weight_path,test,y1,c2.iloc[:,:1],n)
                 final_pred=[float(preds[i])+float(prediction[i]) for i in range(len(preds))]
                 pred_final = [x / 2 for x in final_pred]

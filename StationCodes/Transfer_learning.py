@@ -4,19 +4,19 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error
 from sklearn.metrics import mean_squared_error
 from sklearn.metrics import r2_score
-import Data_preprocessing as dp
+from Station_Training import Data_preprocessing as dp
 import pandas as pd
 from tensorflow.keras.callbacks import ModelCheckpoint
 import joblib
 
-df=pd.read_excel("/Users/mohita/Documents/GitHub/Flask_app/LatestMoistTemp.xlsx")
+df=pd.read_excel("/Users/mohita/Documents/GitHub/Flask_app/Data/LatestMoistTemp.xlsx")
 X = df["Soil Temperature"]
 
 def TL_out(model_lime_cnn_lstm_att,weight_path,test,Y,n):
     model_lime_cnn_lstm_att.load_weights(weight_path,)
     scl = "sclrWeights/TL_sclr_yield_5W.pkl"
     pca = "pcaWeights/TL_pca_yield_5W.pkl"
-    df = pd.read_excel("/Users/mohita/Documents/GitHub/Flask_app/LatestMoistTemp.xlsx")
+    df = pd.read_excel("/Users/mohita/Documents/GitHub/Flask_app/Data/LatestMoistTemp.xlsx")
     X = df["Soil Temperature"]
     print("Type", type(X))
     m_l= min(len(X),len(Y))
@@ -26,7 +26,7 @@ def TL_out(model_lime_cnn_lstm_att,weight_path,test,Y,n):
     x_train, y_train, x_test, y_test = dp.read_data_and_preprocessing(X, Y, n, scl, pca)
     model_lime_cnn_lstm_att.trainable = True
 
-    path_ft = "Weights_FT.hdf5"
+    path_ft = "../TrainingWeights/Weights_FT.hdf5"
 
     checkpoint = ModelCheckpoint(path_ft,monitor='val_loss',
                                                  verbose=0,
@@ -95,7 +95,7 @@ def TL_in(model_lime_cnn_lstm_att,weight_path,test,Y,X,n):
     x_train, y_train, x_test, y_test = dp.read_data_and_preprocessing(X, Y, n, scl, pca)
     model_lime_cnn_lstm_att.trainable = True
 
-    path_ft = "Weights_FT.hdf5"
+    path_ft = "../TrainingWeights/Weights_FT.hdf5"
 
     checkpoint = ModelCheckpoint(path_ft,monitor='val_loss',
                                                  verbose=0,

@@ -178,7 +178,7 @@ def getHists(train_date_start, train_date_end, fips, horizon=0):
         file.GetContentFile(file['title'])
         file.Delete()
     ''
-
+    time.sleep(2)
     # Temperature
     img = np.nan_to_num(tifffile.imread('temp.tif'), nan=0) * 0.02
     temp_img = np.transpose(img, (2, 0, 1))
@@ -403,7 +403,7 @@ def getHists(train_date_start, train_date_end, fips, horizon=0):
     return prelagged_hists
 
 
-def SatImgsTask2(date_start_str, date_end_str, output_type, output_list, county_name, horizon=0):
+def SatImgsTask3(date_start_str, date_end_str, output_type, output_list, county_name='other', fips='0000', horizon=0):
     if horizon == 0: h = 1
     if horizon == 1: h = 7
     if horizon == 2: h = 7 * 2
@@ -411,24 +411,12 @@ def SatImgsTask2(date_start_str, date_end_str, output_type, output_list, county_
     if horizon == 4: h = 7 * 4
     if horizon == 5: h = 7 * 5
 
-    if county_name == 'santa_barbara':
-        fips = '06083'
-
     training_dates = output_list['Date'].dt.date.values
-
     training_date_start = training_dates[0] - datetime.timedelta(days=140 + h)
     training_date_end = training_dates[-1] - datetime.timedelta(days=h)
     print(training_date_start)
     print(training_date_end)
-    prelagged_hists = np.load('prelagged_hists_sm_new_moist.npy')
-    data_date_start = datetime.datetime(year=2015, month=4, day=1).date()
-    data_date_end = datetime.datetime(year=2019, month=12, day=31).date()
-    start_window = (training_date_start - data_date_start).days
-    prelagged_hists = prelagged_hists[start_window:]
-    print(prelagged_hists.shape)
-    end_window = (data_date_end - training_date_end).days
-    print(end_window)
-    prelagged_hists = prelagged_hists[:-end_window]
+    prelagged_hists = getHists(training_date_start, training_date_end, fips, horizon)
     print(prelagged_hists.shape)
 
     train_prelagged_hists = np.transpose(prelagged_hists, (0, 2, 1))
@@ -445,29 +433,34 @@ def SatImgsTask2(date_start_str, date_end_str, output_type, output_list, county_
 
     split = int(0.8 * len(lagged_hists))
     hists_train = lagged_hists[:split]
-    yields_train = output_list['Yield'].values[:split]
     hists_val = lagged_hists[split:]
-    yields_val = output_list['Yield'].values[split:]
+    if output_type == 'yield':
+        yields_train = output_list['Yield'].values[:split]
+        yields_val = output_list['Yield'].values[split:]
+    if output_type == 'price':
+        yields_train = output_list['Price'].values[:split]
+        yields_val = output_list['Price'].values[split:]
+
     print('Train:', hists_train.shape, yields_train.shape)
     print('Validate:', hists_val.shape, yields_val.shape)
 
     agm_CNN = 100
     while agm_CNN > 50:
         if output_type == 'yield':
-            if h == 1: model = models.load_model('SatelliteModels/best_s2y_sm_1day.hdf5')
-            if h == 7: model = models.load_model('SatelliteModels/best_s2y_sm_1week.hdf5')
-            if h == 7 * 2: model = models.load_model('SatelliteModels/best_s2y_sm_2week.hdf5')
-            if h == 7 * 3: model = models.load_model('SatelliteModels/best_s2y_sm_3week.hdf5')
-            if h == 7 * 4: model = models.load_model('SatelliteModels/best_s2y_sm_4week.hdf5')
-            if h == 7 * 5: model = models.load_model('SatelliteModels/best_s2y_sm_5week.hdf5')
+            if h == 1: model = models.load_model('../SatelliteModels/best_s2y_sm_1day.hdf5')
+            if h == 7: model = models.load_model('../SatelliteModels/best_s2y_sm_1week.hdf5')
+            if h == 7 * 2: model = models.load_model('../SatelliteModels/best_s2y_sm_2week.hdf5')
+            if h == 7 * 3: model = models.load_model('../SatelliteModels/best_s2y_sm_3week.hdf5')
+            if h == 7 * 4: model = models.load_model('../SatelliteModels/best_s2y_sm_4week.hdf5')
+            if h == 7 * 5: model = models.load_model('../SatelliteModels/best_s2y_sm_5week.hdf5')
 
         if output_type == 'price':
-            if h == 1: model = models.load_model('SatelliteModels/best_s2p_sm_1day.hdf5')
-            if h == 7: model = models.load_model('SatelliteModels/best_s2p_sm_1week.hdf5')
-            if h == 7 * 2: model = models.load_model('SatelliteModels/best_s2p_sm_2week.hdf5')
-            if h == 7 * 3: model = models.load_model('SatelliteModels/best_s2p_sm_3week.hdf5')
-            if h == 7 * 4: model = models.load_model('SatelliteModels/best_s2p_sm_4week.hdf5')
-            if h == 7 * 5: model = models.load_model('SatelliteModels/best_s2p_sm_5week.hdf5')
+            if h == 1: model = models.load_model('../SatelliteModels/best_s2p_sm_1day.hdf5')
+            if h == 7: model = models.load_model('../SatelliteModels/best_s2p_sm_1week.hdf5')
+            if h == 7 * 2: model = models.load_model('../SatelliteModels/best_s2p_sm_2week.hdf5')
+            if h == 7 * 3: model = models.load_model('../SatelliteModels/best_s2p_sm_3week.hdf5')
+            if h == 7 * 4: model = models.load_model('../SatelliteModels/best_s2p_sm_4week.hdf5')
+            if h == 7 * 5: model = models.load_model('../SatelliteModels/best_s2p_sm_5week.hdf5')
 
         for layer in model.layers[:5]:
             layer.trainable = False
@@ -481,13 +474,13 @@ def SatImgsTask2(date_start_str, date_end_str, output_type, output_list, county_
         optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
         loss = 'mean_absolute_error'
         model.compile(optimizer=optimizer, loss=loss)
-        mcp_save = ModelCheckpoint('SatelliteModels/best_s2y_transfer_learning.hdf5', save_best_only=True,
+        mcp_save = ModelCheckpoint('../SatelliteModels/best_s2y_transfer_learning.hdf5', save_best_only=True,
                                    monitor='val_loss', mode='min')
         history = model.fit(hists_train, yields_train, validation_data=(hists_val, yields_val), epochs=30 \
                             , batch_size=32, callbacks=[mcp_save], verbose=0)
 
         print('Training time:', time.time() - start, ' seconds')
-        model = models.load_model('SatelliteModels/best_s2y_transfer_learning.hdf5')
+        model = models.load_model('../SatelliteModels/best_s2y_transfer_learning.hdf5')
         pred = model.predict(hists_val).flatten()
 
         RMSE_CNN = np.sqrt(np.mean((pred - yields_val) ** 2))
@@ -500,12 +493,13 @@ def SatImgsTask2(date_start_str, date_end_str, output_type, output_list, county_
         plt.grid()
         plt.xlabel('Days');
         plt.ylabel('Yield')
-        plt.title('Frozen Base Model on Raspberry Data')
         plt.show()
         print(MAE_CNN)
         print(RMSE_CNN)
         print(r2_CNN)
         print(agm_CNN)
+        if output_type == 'price':
+            agm_CNN += 49
 
     # Forecasting
     date_start = datetime.datetime(int(date_start_str[:4]), int(date_start_str[5:7]), int(date_start_str[8:]), 0, 0)
@@ -530,7 +524,7 @@ def SatImgsTask2(date_start_str, date_end_str, output_type, output_list, county_
 
     ### Obtaining forecasts ###
     if output_type == 'yield':
-        model = models.load_model('SatelliteModels/best_s2y_transfer_learning.hdf5')
+        model = models.load_model('../SatelliteModels/best_s2y_transfer_learning.hdf5')
 
     # print(model.summary())
     preds = model.predict(lagged_hists)
@@ -538,22 +532,23 @@ def SatImgsTask2(date_start_str, date_end_str, output_type, output_list, county_
     return preds
 
 
-'''
+"""
 d_start = '2019-05-01'
 d_end = '2019-07-01'
 
 
 rasp_list = pd.read_excel('raspberries_sm.xlsx')
-y = SatImgsTask2(d_start, d_end, output_type='yield', output_list=rasp_list, county_name='santa_barbara', horizon=5)
+y = SatImgsTask3(d_start, d_end, output_type='yield', output_list=rasp_list, county_name='santa_barbara',fips='06111' , horizon=5)
+
 
 #%%
 true_y = pd.read_excel('raspberries_sm.xlsx')['Yield'].values[1216:1278]
-fit1 = ExponentialSmoothing(y, seasonal_periods=12).fit()
-y_exp = fit1.fittedvalues
+#fit1 = ExponentialSmoothing(y, seasonal_periods=12).fit()
+y_exp = y
 
 plt.plot(true_y, label='true')
 plt.plot(y, label='predicted')
 plt.plot(y_exp, label='smoothing')
 plt.legend()
 plt.show()
-'''
+"""
