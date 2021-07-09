@@ -447,20 +447,20 @@ def SatImgsTask3(date_start_str, date_end_str, output_type, output_list, county_
     agm_CNN = 100
     while agm_CNN > 50:
         if output_type == 'yield':
-            if h == 1: model = models.load_model('New Models/best_s2y_sm_1day.hdf5')
-            if h == 7: model = models.load_model('New Models/best_s2y_sm_1week.hdf5')
-            if h == 7 * 2: model = models.load_model('New Models/best_s2y_sm_2week.hdf5')
-            if h == 7 * 3: model = models.load_model('New Models/best_s2y_sm_3week.hdf5')
-            if h == 7 * 4: model = models.load_model('New Models/best_s2y_sm_4week.hdf5')
-            if h == 7 * 5: model = models.load_model('New Models/best_s2y_sm_5week.hdf5')
+            if h == 1: model = models.load_model('SatelliteModels/best_s2y_sm_1day.hdf5')
+            if h == 7: model = models.load_model('SatelliteModels/best_s2y_sm_1week.hdf5')
+            if h == 7 * 2: model = models.load_model('SatelliteModels/best_s2y_sm_2week.hdf5')
+            if h == 7 * 3: model = models.load_model('SatelliteModels/best_s2y_sm_3week.hdf5')
+            if h == 7 * 4: model = models.load_model('SatelliteModels/best_s2y_sm_4week.hdf5')
+            if h == 7 * 5: model = models.load_model('SatelliteModels/best_s2y_sm_5week.hdf5')
 
         if output_type == 'price':
-            if h == 1: model = models.load_model('New Models/best_s2p_sm_1day.hdf5')
-            if h == 7: model = models.load_model('New Models/best_s2p_sm_1week.hdf5')
-            if h == 7 * 2: model = models.load_model('New Models/best_s2p_sm_2week.hdf5')
-            if h == 7 * 3: model = models.load_model('New Models/best_s2p_sm_3week.hdf5')
-            if h == 7 * 4: model = models.load_model('New Models/best_s2p_sm_4week.hdf5')
-            if h == 7 * 5: model = models.load_model('New Models/best_s2p_sm_5week.hdf5')
+            if h == 1: model = models.load_model('SatelliteModels/best_s2p_sm_1day.hdf5')
+            if h == 7: model = models.load_model('SatelliteModels/best_s2p_sm_1week.hdf5')
+            if h == 7 * 2: model = models.load_model('SatelliteModels/best_s2p_sm_2week.hdf5')
+            if h == 7 * 3: model = models.load_model('SatelliteModels/best_s2p_sm_3week.hdf5')
+            if h == 7 * 4: model = models.load_model('SatelliteModels/best_s2p_sm_4week.hdf5')
+            if h == 7 * 5: model = models.load_model('SatelliteModels/best_s2p_sm_5week.hdf5')
 
         for layer in model.layers[:5]:
             layer.trainable = False
@@ -474,13 +474,13 @@ def SatImgsTask3(date_start_str, date_end_str, output_type, output_list, county_
         optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
         loss = 'mean_absolute_error'
         model.compile(optimizer=optimizer, loss=loss)
-        mcp_save = ModelCheckpoint('New Models/best_s2y_transfer_learning.hdf5', save_best_only=True,
+        mcp_save = ModelCheckpoint('SatelliteModels/best_s2y_transfer_learning.hdf5', save_best_only=True,
                                    monitor='val_loss', mode='min')
         history = model.fit(hists_train, yields_train, validation_data=(hists_val, yields_val), epochs=30 \
                             , batch_size=32, callbacks=[mcp_save], verbose=0)
 
         print('Training time:', time.time() - start, ' seconds')
-        model = models.load_model('New Models/best_s2y_transfer_learning.hdf5')
+        model = models.load_model('SatelliteModels/best_s2y_transfer_learning.hdf5')
         pred = model.predict(hists_val).flatten()
 
         RMSE_CNN = np.sqrt(np.mean((pred - yields_val) ** 2))
@@ -524,7 +524,7 @@ def SatImgsTask3(date_start_str, date_end_str, output_type, output_list, county_
 
     ### Obtaining forecasts ###
     if output_type == 'yield':
-        model = models.load_model('New Models/best_s2y_transfer_learning.hdf5')
+        model = models.load_model('SatelliteModels/best_s2y_transfer_learning.hdf5')
 
     # print(model.summary())
     preds = model.predict(lagged_hists)
