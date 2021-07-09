@@ -354,7 +354,7 @@ def univariate_impute():
     plt.plot(df)
     plt.show()
     df.to_csv('Data/miss_data.csv',index=None,header=None)
-    row = pd.read_csv('../Data/miss_data.csv', sep='\t', header=None).shape[0]
+    row = pd.read_csv('Data/miss_data.csv', sep='\t', header=None).shape[0]
     steps = 34
     batch = 21
     prime_batch = prime_numbers(batch)
@@ -471,11 +471,11 @@ def SimilarityCheck():
         y1 = [float(item) for item in y1]
         y2 = [float(item) for item in y2]
         y1, y2, dates = simcheck.Common_Yield_Window(d1, d2, y1, y2)
-        #percentage,binary_check=simcheck.Similarity_Input_Output(c1, c2, y1,y2,dates)
+        percentage,binary_check=simcheck.Similarity_Input_Output(c1, c2, y1,y2,dates)
         #analysis.Similarity_Input_Output(c1, c2, y1,y2,dates)
         #analysis.DeResults_Similarity_Output(y1,y2,dates)
         #print(percentage,binary_check)
-        return jsonify({'message': 78, 'binary_value': 1})
+        return jsonify({'message': percentage, 'binary_value': binary_check})
     #return jsonify({'message': data})
 
 @app.route('/SimilarOutputPrice', methods=['POST'])

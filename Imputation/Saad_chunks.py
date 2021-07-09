@@ -128,7 +128,7 @@ def Imputer(df):
     df_combined = pd.concat([df, imputed_dataframe], axis=1)
     plt.plot(df_combined)
     plt.show()
-    df_combined.to_excel('Transfer Learning Results.xls')
+    df_combined.to_excel('/Users/mohita/Documents/GitHub/Flask_app/Data/Transfer Learning Results.xls')
     os.remove('interim.h5')
     os.remove('pretrained_model.h5')
 
