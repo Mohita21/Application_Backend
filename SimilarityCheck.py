@@ -1,0 +1,908 @@
+import numpy as np
+import pandas as pd
+import datetime
+from datetime import date, timedelta
+import matplotlib.pyplot as plt
+
+def Similarity_Output(y1,y2,dates):
+    flag = -1
+
+    Yield = pd.DataFrame({'y1': y1}, index=pd.DatetimeIndex(dates))
+    Yield['y2'] = y2
+
+    List_Prc = ['Observation', 'Trend', 'Seasonality', 'Residual(Noise)']
+    Prc = np.zeros((len(List_Prc)))
+
+    # Decompose series to the core components
+    Decompse_result = np.zeros((int(Yield.shape[0] / 30), 5, Yield.shape[1]))
+    Yield.index = pd.to_datetime(Yield.index)
+    print(Yield)
+    from statsmodels.tsa.seasonal import seasonal_decompose
+
+    for i in range(2):
+        series = Yield.iloc[:, i]
+        resample = series.resample('M')
+        monthly_mean = resample.mean()
+        result = seasonal_decompose(monthly_mean, model='multiplicative')  # multiplicative  or additive
+        Decompse_result[:, 0, i] = result.observed.values
+        Decompse_result[:, 1, i] = result.trend.values
+        Decompse_result[:, 2, i] = result.seasonal.values
+        Decompse_result[:, 3, i] = result.resid.values
+
+    # Dynamic Time Warping time series similarity measure
+    # !pip install fastdtw
+    from scipy import stats
+    from fastdtw import fastdtw
+    from scipy.spatial.distance import euclidean
+
+    list = ['Observation', 'Trend', 'Seasonality', 'Residual']
+    where_are_NaNs = np.isnan(Decompse_result)
+    Decompse_result[where_are_NaNs] = 0
+    A = np.zeros((Decompse_result.shape[0], Decompse_result.shape[2]))
+    for n in range(4):
+        for m in range(Decompse_result.shape[2]):
+            A[:, m] = Decompse_result[:, n, m]
+
+        A_az = stats.zscore(A,
+                            axis=0)  # Calculates the z score of each value in the sample, relative to the sample mean and standard deviation
+
+        Dis_az = np.zeros((A.shape[1], A.shape[1]))
+        Dis_az = pd.DataFrame(Dis_az, index=Yield.columns, columns=Yield.columns)
+
+        for i in range(A.shape[1]):
+            x = A_az[:, i]  # /np.max(Yield.iloc[:,i].values)
+            for j in range(A.shape[1]):
+                y = A_az[:, j]  # /np.max(Yield.iloc[:,j].values)
+                distance, path = fastdtw(x, y, dist=euclidean)
+                Dis_az.iloc[i, j] = round(distance, 2)
+
+        # ** Thresholds ***
+        if Dis_az.iloc[0, 1] <= 1:
+            Prc[n] = 100
+        elif 1 < Dis_az.iloc[0, 1] <= 10:
+            Prc[n] = 90
+        elif 10 < Dis_az.iloc[0, 1] <= 20:
+            Prc[n] = 85
+        elif 20 < Dis_az.iloc[0, 1] <= 30:
+            Prc[n] = 80
+        elif 30 < Dis_az.iloc[0, 1] <= 40:
+            Prc[n] = 75
+        elif 40 < Dis_az.iloc[0, 1] <= 50:
+            Prc[n] = 70
+        elif 50 < Dis_az.iloc[0, 1] <= 60:
+            Prc[n] = 65
+        elif 60 < Dis_az.iloc[0, 1] <= 70:
+            Prc[n] = 60
+        else:
+            Prc[n] = 55
+
+    # Average of Similarity Percentages
+    Weighted_Prc = Prc
+    # Weighted_Prc[]=Weighted_Prc[]*3
+    # Weighted_Prc[]=Weighted_Prc[]*2
+    percentage_similarity_yield = round(np.sum(Weighted_Prc) / np.size(Prc))
+
+    num = []
+    num = np.where(Prc <= 70)
+    if np.size(num) == 0:
+        #binary_similarity_yield = 'The investigated {} and {} are similar.'.format(Yield.columns[0], Yield.columns[1])
+        flag=1
+        # print('{} and {} are similar.'.format(Yield.columns[0],Yield.columns[1]))
+    else:
+        # print('{} and {} are dissimilar.'.format(Yield.columns[0],Yield.columns[1]))
+        #binary_similarity_yield = 'The investigated {} and {} are not similar.'.format(Yield.columns[0],Yield.columns[1])
+        flag=0
+
+    ## Display
+    # from tabulate import tabulate
+    # my_df= pd.DataFrame(np.transpose(Prc),index=List_Prc,columns=['Percentage of Similarity'])
+    # print("\n",tabulate(my_df, headers='keys', tablefmt='psql'))
+    print(percentage_similarity_yield)
+    print(flag)
+    return (percentage_similarity_yield, flag)
+
+
+def Common_Yield_Window(d1,d2,y1,y2):
+    df1 = pd.DataFrame({'y1': y1}, index=pd.DatetimeIndex(d1))
+    df2 = pd.DataFrame({'y2': y2}, index=pd.DatetimeIndex(d2))
+    t1 = pd.DatetimeIndex([d1[0]])
+    t2 = pd.DatetimeIndex([d2[0]])
+    t3 = pd.DatetimeIndex([d1[len(d1) - 1]])
+    t4 = pd.DatetimeIndex([d2[len(d2) - 1]])
+    sd = max([t1, t2])
+    ed = min([t3, t4])
+    dates = pd.date_range(sd.values[0], ed.values[0])
+    dates = pd.DatetimeIndex(dates)
+    y1=[df1["y1"][i] for i in dates]
+    y2 = [df2["y2"][i] for i in dates]
+    return y1,y2,dates
+
+
+
+def Similarity_Input(StartDate, county_1_conditions, county_2_conditions):
+    county_1_conditions = county_1_conditions.astype('float32')
+    county_2_conditions = county_2_conditions.astype('float32')
+    leng=min(len(county_1_conditions ),len(county_2_conditions))
+    county_1_conditions=county_1_conditions[:leng]
+    county_2_conditions = county_2_conditions[:leng]
+    import numpy as np
+    import pandas as pd
+    flag = -1
+    date = np.array(StartDate, dtype=np.datetime64)  # '2015-07-04'
+    date = date + np.arange(county_1_conditions.shape[0])
+    county_1_conditions.index = date
+    county_2_conditions.index = date
+
+    List_Prc = ['Observation', 'Trend', 'Seasonality', 'Residual(Noise)', 'Linear Correlation']
+    Prc = np.zeros([(len(List_Prc)), county_1_conditions.shape[1]])
+    Col_list = []
+
+    for CN in range(county_1_conditions.shape[1]):
+
+        my_array = np.transpose(np.array([county_1_conditions.iloc[:, CN], county_2_conditions.iloc[:, CN]]))
+        Yield = pd.DataFrame(my_array, index=county_1_conditions.index,
+                             columns=[county_1_conditions.columns[CN], county_2_conditions.columns[CN]])
+
+        # Decompose series to the core components
+        Decompse_result = np.zeros((int(Yield.shape[0] / 30), 5, Yield.shape[1]))
+        Yield.index = pd.to_datetime(Yield.index)
+        from statsmodels.tsa.seasonal import seasonal_decompose
+
+        for i in range(2):
+            series = Yield.iloc[:, i]
+            resample = series.resample('M')
+            monthly_mean = resample.mean()
+            result = seasonal_decompose(monthly_mean, model='multiplicative')  # multiplicative  or additive
+            Decompse_result[:, 0, i] = result.observed.values
+            Decompse_result[:, 1, i] = result.trend.values
+            Decompse_result[:, 2, i] = result.seasonal.values
+            Decompse_result[:, 3, i] = result.resid.values
+
+        # Dynamic Time Warping time series similarity measure
+        # !pip install fastdtw
+        from scipy import stats
+        from fastdtw import fastdtw
+        from scipy.spatial.distance import euclidean
+
+        # list=['Observation','Trend','Seasonality','Residual']
+        where_are_NaNs = np.isnan(Decompse_result)
+        Decompse_result[where_are_NaNs] = 0
+        A = np.zeros((Decompse_result.shape[0], Decompse_result.shape[2]))
+        for n in range(4):
+            for m in range(Decompse_result.shape[2]):
+                A[:, m] = Decompse_result[:, n, m]
+
+            A_az = stats.zscore(A,
+                                axis=0)  # Calculates the z score of each value in the sample, relative to the sample mean and standard deviation
+
+            Dis_az = np.zeros((A.shape[1], A.shape[1]))
+            Dis_az = pd.DataFrame(Dis_az, index=Yield.columns, columns=Yield.columns)
+
+            for i in range(A.shape[1]):
+                x = A_az[:, i]  # /np.max(Yield.iloc[:,i].values)
+                for j in range(A.shape[1]):
+                    y = A_az[:, j]  # /np.max(Yield.iloc[:,j].values)
+                    distance, path = fastdtw(x, y, dist=euclidean)
+                    Dis_az.iloc[i, j] = round(distance, 2)
+
+            # ** Thresholds ***
+            if Dis_az.iloc[0, 1] <= 1:
+                Prc[n, CN] = 100
+            elif 1 < Dis_az.iloc[0, 1] <= 10:
+                Prc[n, CN] = 90
+            elif 10 < Dis_az.iloc[0, 1] <= 20:
+                Prc[n, CN] = 85
+            elif 20 < Dis_az.iloc[0, 1] <= 30:
+                Prc[n, CN] = 80
+            elif 30 < Dis_az.iloc[0, 1] <= 40:
+                Prc[n, CN] = 75
+            elif 40 < Dis_az.iloc[0, 1] <= 50:
+                Prc[n, CN] = 70
+            elif 50 < Dis_az.iloc[0, 1] <= 60:
+                Prc[n, CN] = 65
+            elif 60 < Dis_az.iloc[0, 1] <= 70:
+                Prc[n, CN] = 60
+            else:
+                Prc[n, CN] = 55
+
+        from scipy.stats import pearsonr
+        corr, _ = pearsonr(Yield.iloc[:, 0], Yield.iloc[:, 1])
+        # print(corr)
+
+        Prc[n + 1, CN] = round(corr * 100)
+        Col_list.append('Percentage of Similarity for {}'.format(Yield.columns[CN]))
+    # print(Prc)
+
+    ## Display
+    # from tabulate import tabulate
+    # my_df= pd.DataFrame(Prc,index=List_Prc,columns=Col_list)#['Percentage of Similarity','Percentage of Similarity'])
+    # print("\n",tabulate(my_df, headers='keys', tablefmt='psql'))
+
+    # Average of Similarity Percentages
+    Weighted_Prc = Prc
+    Weighted_Prc[4, :] = Weighted_Prc[4, :] * 2
+    # Weighted_Prc[]=Weighted_Prc[]*2
+    percentage_similarity_yield = round(sum(sum(Weighted_Prc)) / (np.size(Prc) + np.shape(Prc)[1]))
+
+    num = []
+    num = np.where(Prc <= 70)
+    if np.size(num) == 0:
+        flag= 1
+        #binary_similarity_yield = 'The condition of County_1 and County_2 are similar.'
+
+        # print('{} and {} are similar.'.format(Yield.columns[0],Yield.columns[1]))
+    else:
+        flag =0
+        # print('{} and {} are dissimilar.'.format(Yield.columns[0],Yield.columns[1]))
+        #binary_similarity_yield = 'The condition of County_1 and County_2 are not similar.'
+
+    return (percentage_similarity_yield, flag)
+
+
+
+
+
+def Similarity_Input_Output(county_1_conditions, county_2_conditions, y1,y2,dates):
+    import numpy as np
+    import pandas as pd
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+
+    from sklearn.preprocessing import MinMaxScaler
+    from sklearn.model_selection import train_test_split
+    from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
+
+    Yield = pd.DataFrame({'y1': y1}, index=pd.DatetimeIndex(dates))
+    Yield['y2'] = y2
+    county_1_conditions.index = Yield.index
+    county_2_conditions.index = Yield.index
+
+    List_Prc = ['Average_Linear_correlation', 'Effective_Lag_time', 'Effective_Predictors']
+    Prc = np.zeros((len(List_Prc)))
+
+    # Inter-stage dependency and Linear correlation
+    from numpy.random import randn
+    from numpy.random import seed
+    from scipy.stats import pearsonr
+    # seed random number generator
+    seed(42)
+
+    num = 70
+
+    # calculate Pearson's correlation
+    R = np.zeros((num, county_1_conditions.shape[1], Yield.shape[1]))
+    for i in range(num):
+
+        wlag = i * 5
+        y = Yield.iloc[0 + wlag:Yield.shape[0]][:]
+        for n in range(Yield.shape[1]):
+
+            if n == 0:
+                Predictors = county_1_conditions
+            else:
+                Predictors = county_2_conditions
+
+            p = Predictors.iloc[0:Predictors.shape[0] - wlag][:]
+
+            for j in range(p.shape[1]):
+                corr, _ = pearsonr(p.iloc[:, j], y.iloc[:, n])
+                # print('Pearsons correlation: %.3f' % corr)
+                R[i, j, n] = corr
+
+    from termcolor import colored
+    pd.set_option('display.max_columns', None)
+    eff_lag = np.zeros((3, R.shape[1], R.shape[2]))
+    pd.options.display.float_format = "{:,.2f}".format
+    for j in range(R.shape[2]):
+        for i in range(R.shape[1]):
+            if max(abs(R[10:, i, j])) in R[:, i, j]:
+                eff_lag[0, i, j] = (np.argmax(abs(R[10:, i, j])) + 10) * 5
+                eff_lag[1, i, j] = round(eff_lag[0, i, j] / 30)
+                eff_lag[2, i, j] = max(abs(R[10:, i, j]))
+            else:
+                eff_lag[0, i, j] = (np.argmax(abs(R[10:, i, j])) + 10) * 5
+                eff_lag[1, i, j] = round(eff_lag[0, i, j] / 30)
+                eff_lag[2, i, j] = -max(abs(R[10:, i, j]))
+        # print(eff_lag[:,:,j])
+
+    Cor_val = np.zeros((1, y.shape[1]))
+    for i in range(y.shape[1]):
+        # print(colored(y.columns[i], 'red', attrs=['bold']))
+        # print(y.columns[i])
+        Elag = pd.DataFrame(eff_lag[:, :, i], index=['Best_daily_lag', 'Best_monthly_lag', 'Maximum_correlation'],
+                            columns=[p.columns])
+        # print(Elag.head())
+        # print("\n \n")
+
+        Cor_val[0, i] = np.mean(np.sort(abs(Elag.iloc[2, :]))[::-1])
+
+    A = Cor_val[0, 0] - Cor_val[0, 1]
+
+    if A <= 0.01:
+        Prc[0] = 90
+    elif 0.01 < A <= 0.1:
+        Prc[0] = 70
+    elif 0.1 < A <= 0.2:
+        Prc[0] = 50
+    elif 0.2 < A <= 0.3:
+        Prc[0] = 30
+    else:
+        Prc[0] = 10
+
+    # Effective predictors and corresponding lag-time
+    # Binary GA
+    class BGA():
+        """
+        Simple 0-1 genetic algorithm.
+        User Guide:
+        >> test = GA(pop_shape=(10, 10), method=np.sum)
+        >> solution, fitness = test.run()
+        """
+
+        def __init__(self, pop_shape, method, p_c=0.8, p_m=0.2, max_round=1000, early_stop_rounds=None, verbose=None,
+                     maximum=True):
+            """
+            Args:
+                pop_shape: The shape of the population matrix.
+                method: User-defined medthod to evaluate the single individual among the population.
+                        Example:
+                        def method(arr): # arr is a individual array
+                            return np.sum(arr)
+                p_c: The probability of crossover.
+                p_m: The probability of mutation.
+                max_round: The maximun number of evolutionary rounds.
+                early_stop_rounds: Default is None and must smaller than max_round.
+                verbose: 'None' for not printing progress messages. int type number for printing messages every n iterations.
+                maximum: 'True' for finding the maximum value while 'False' for finding the minimum value.
+            """
+            if early_stop_rounds != None:
+                assert (max_round > early_stop_rounds)
+            self.pop_shape = pop_shape
+            self.method = method
+            self.pop = np.ones(pop_shape)
+            self.fitness = np.zeros(pop_shape[0])
+            self.p_c = p_c
+            self.p_m = p_m
+            self.max_round = max_round
+            self.early_stop_rounds = early_stop_rounds
+            self.verbose = verbose
+            self.maximum = maximum
+
+        def evaluation(self, pop):
+            """
+            Computing the fitness of the input popluation matrix.
+            Args:
+                p: The population matrix need to be evaluated.
+            """
+            return np.array([self.method(i) for i in pop])
+
+        def initialization(self):
+            """
+            Initalizing the population which shape is self.pop_shape(0-1 matrix).
+            """
+            self.pop = np.random.randint(low=0, high=2, size=self.pop_shape)
+            self.fitness = self.evaluation(self.pop)
+
+        def crossover(self, ind_0, ind_1):
+            """
+            Single point crossover.
+            Args:
+                ind_0: individual_0
+                ind_1: individual_1
+            Ret:
+                new_0, new_1: the individuals generatd after crossover.
+            """
+            assert (len(ind_0) == len(ind_1))
+
+            point = np.random.randint(len(ind_0))
+            #         new_0, new_1 = np.zeros(len(ind_0)),  np.zeros(len(ind_0))
+            new_0 = np.hstack((ind_0[:point], ind_1[point:]))
+            new_1 = np.hstack((ind_1[:point], ind_0[point:]))
+
+            assert (len(new_0) == len(ind_0))
+            return new_0, new_1
+
+        def mutation(self, indi):
+            """
+            Simple mutation.
+            Arg:
+                indi: individual to mutation.
+            """
+            point = np.random.randint(len(indi))
+            indi[point] = 1 - indi[point]
+            return indi
+
+        def rws(self, size, fitness):
+            """
+            Roulette Wheel Selection.
+            Args:
+                size: the size of individuals you want to select according to their fitness.
+                fitness: the fitness of population you want to apply rws to.
+            """
+            if self.maximum:
+                fitness_ = fitness
+            else:
+                fitness_ = 1.0 / fitness
+            #         fitness_ = fitness
+            idx = np.random.choice(np.arange(len(fitness_)), size=size, replace=True,
+                                   p=fitness_ / fitness_.sum())  #
+            return idx
+
+        def run(self):
+            """
+            Run the genetic algorithm.
+            Ret:
+                global_best_ind: The best indiviudal during the evolutionary process.
+                global_best_fitness: The fitness of the global_best_ind.
+            """
+            global_best = 0
+            self.initialization()
+            best_index = np.argsort(self.fitness)[0]
+            global_best_fitness = self.fitness[best_index]
+            global_best_ind = self.pop[best_index, :]
+            eva_times = self.pop_shape[0]
+            count = 0
+
+            for it in range(self.max_round):
+                next_gene = []
+
+                for n in range(int(self.pop_shape[0] / 2)):
+                    i, j = self.rws(2, self.fitness)  # choosing 2 individuals with rws.
+                    indi_0, indi_1 = self.pop[i, :].copy(), self.pop[j, :].copy()
+                    if np.random.rand() < self.p_c:
+                        indi_0, indi_1 = self.crossover(indi_0, indi_1)
+
+                    if np.random.rand() < self.p_m:
+                        indi_0 = self.mutation(indi_0)
+                        indi_1 = self.mutation(indi_1)
+
+                    next_gene.append(indi_0)
+                    next_gene.append(indi_1)
+
+                self.pop = np.array(next_gene)
+                self.fitness = self.evaluation(self.pop)
+                eva_times += self.pop_shape[0]
+
+                if self.maximum:
+                    if np.max(self.fitness) > global_best_fitness:
+                        best_index = np.argsort(self.fitness)[-1]
+                        global_best_fitness = self.fitness[best_index]
+                        global_best_ind = self.pop[best_index, :]
+                        count = 0
+                    else:
+                        count += 1
+                    worst_index = np.argsort(self.fitness)[-1]
+                    self.pop[worst_index, :] = global_best_ind
+                    self.fitness[worst_index] = global_best_fitness
+
+                else:
+                    if np.min(self.fitness) < global_best_fitness:
+                        best_index = np.argsort(self.fitness)[0]
+                        global_best_fitness = self.fitness[best_index]
+                        global_best_ind = self.pop[best_index, :]
+                        count = 0
+                    else:
+                        count += 1
+
+                    worst_index = np.argsort(self.fitness)[-1]
+                    self.pop[worst_index, :] = global_best_ind
+                    self.fitness[worst_index] = global_best_fitness
+
+                if self.verbose != None and 0 == (it % self.verbose):
+                    print('Gene {}:'.format(it))
+                    print('Global best fitness:', global_best_fitness)
+
+                if self.early_stop_rounds != None and count > self.early_stop_rounds:
+                    print('Did not improved within {} rounds. Break.'.format(self.early_stop_rounds))
+                    break
+
+            # print('\n Solution: {} \n Fitness: {} \n Evaluation times: {}'.format(global_best_ind, global_best_fitness, eva_times))
+            # print(global_best_ind)
+            # print(global_best_fitness)
+            return global_best_ind, global_best_fitness
+
+    # *******************************************************************************************************************
+
+    # *#*#*# Scenario 1 #*#*#*#
+    # !pip install delayed
+    features = np.zeros((Yield.shape[1], county_1_conditions.shape[1]))
+    eff_lag_day = np.zeros((Yield.shape[1]))
+    eff_lag_month = np.zeros((Yield.shape[1]))
+
+    A = 1.3
+    B = 1.2
+
+    from sklearn.svm import SVR
+    for ny in range(Yield.shape[1]):
+
+        if ny == 0:
+            Predictors = county_1_conditions
+        else:
+            Predictors = county_2_conditions
+
+        global Max_tr, Max_te
+        Max_tr = np.array(0.1)
+        Max_te = np.array(0.1)
+
+        # Apply effective lags to the predictors
+        Lag_max = np.max(eff_lag[0, :, ny])
+
+        Y = np.roll(Yield.iloc[:, ny].values, int(-Lag_max), axis=0)[:int(-Lag_max)]
+
+        P_tot1 = np.zeros([Predictors.shape[0] - int(Lag_max), Predictors.shape[1]])
+        for i in range(Predictors.shape[1]):
+            P_tot1[:, i] = np.roll(Predictors.iloc[:, i].values, -int(Lag_max - eff_lag[0, i, ny]))[:-int(Lag_max)]
+
+        P_tot = P_tot1  # Use environmental data as the only predictors
+
+        # Split the data into train and test
+        def values(arr):
+            if np.sum(arr) < 1:
+                from random import randint
+                arr[randint(0, arr.shape[0] - 1)] = 1
+
+            P = P_tot[:, [arr > 0][0]]
+
+            # Random split
+            from sklearn.model_selection import train_test_split
+            x_train, x_test, y_train, y_test = train_test_split(P, Y, test_size=0.33, random_state=42)
+
+            # Data normalization
+            def norm(x):
+                return (x - np.mean(x, axis=0)) / np.std(x, axis=0)
+
+            normed_x_train = norm(x_train)
+            normed_x_test = norm(x_test)
+
+            # build SVR model  *****************************************
+
+            model = SVR(C=20, epsilon=0.01, kernel='rbf',
+                        degree=3, gamma='scale', coef0=0.0, tol=0.001,
+                        shrinking=True, cache_size=200,
+                        verbose=False, max_iter=-1)
+            # model.summary()
+
+            # SVR model training ******************************************
+            history = model.fit(normed_x_train, y_train)
+
+            train_predictions = model.predict(normed_x_train).flatten()
+            r2_train = r2_score(y_train, train_predictions)
+            mae_train = mean_absolute_error(y_train, train_predictions)
+            mse_train = mean_squared_error(y_train, train_predictions)
+            agg_err_train = ((np.sqrt(mse_train) + mae_train) / 2) * (1 - r2_train)
+
+            test_predictions = model.predict(normed_x_test).flatten()
+            r2_test = r2_score(y_test, test_predictions)
+            mae_test = mean_absolute_error(y_test, test_predictions)
+            mse_test = mean_squared_error(y_test, test_predictions)
+            agg_err_test = ((np.sqrt(mse_test) + mae_test) / 2) * (1 - r2_test)
+
+            global Max_tr, Max_te
+
+            if r2_train > Max_tr:
+                Max_tr = r2_train
+                Max_te = r2_test
+
+            Cost = abs(r2_train * A + B * r2_test + (
+                        (np.mean([(Max_tr) * A, (Max_te) * B]) / 3 + 0.15) / (arr.shape[0] / 2.7)) * arr.shape[
+                           0] / np.sum(arr))
+            # Cost=abs(r2_train*A+B*r2_test)
+
+            if r2_train < 0 or r2_test < 0:
+                Cost = 0
+
+            # print(Cost, "\n")
+            return Cost
+
+        # Run feature selection model
+        num_pop = 20
+        problem_dimentions = P_tot.shape[1]
+
+        test = BGA(pop_shape=(num_pop, problem_dimentions), method=values, p_c=0.8, p_m=0.2, max_round=70,
+                   early_stop_rounds=None, verbose=None, maximum=True)
+        best_solution, best_fitness = test.run()
+        features[ny, :] = best_solution
+        eff_lag_day[ny] = round(np.mean(eff_lag[0, features[ny, :] > 0, ny]))
+        eff_lag_month[ny] = round(np.mean(eff_lag[1, features[ny, :] > 0, ny]))
+        # print('\n FP_type: {} \n Best_features: {} \n Effective_daily_lag: {} \n Effective_monthly_lag: {}'.format(Yield.columns[ny],Predictors.columns[features[ny,:]>0],eff_lag_day[ny],eff_lag_month[ny]))
+
+    # Similarity percentage based on the Effective Perdictors and Lag-time
+    P_lag1 = 100 - (abs(eff_lag_month[0] - eff_lag_month[1]) * 5)
+    P_pred1 = 90 - (sum(abs(features[1, :] - features[0, :])) * 25)
+
+    # Check train and test accuracy- Scenario 1
+    R1 = np.zeros(2)
+    for ny in range(Yield.shape[1]):
+        # print(features[ny,:])
+
+        if ny == 0:
+            Predictors = county_1_conditions
+        else:
+            Predictors = county_2_conditions
+
+        arr = features[ny, :]
+
+        # Apply effective lags to the predictors
+        Lag_max = eff_lag_day[ny].astype(np.int)
+
+        Y = np.roll(Yield.iloc[:, ny].values, int(-Lag_max), axis=0)[:int(-Lag_max)]
+        P_tot = Predictors.iloc[:-Lag_max, :].values
+
+        # Split the data into train and test
+        if np.sum(arr) < 1:
+            from random import randint
+            arr[randint(0, arr.shape[0] - 1)] = 1
+
+        P = P_tot[:, [arr > 0][0]]
+
+        # Random split
+        from sklearn.model_selection import train_test_split
+        x_train, x_test, y_train, y_test = train_test_split(P, Y, test_size=0.33, random_state=42)
+
+        def norm(x):
+            return (x - np.mean(x, axis=0)) / np.std(x, axis=0)
+
+        normed_x_train = norm(x_train)
+        normed_x_test = norm(x_test)
+
+        # build SVR model *****************************************
+
+        model = SVR(C=1000, epsilon=0.01, kernel='rbf',
+                    degree=3, gamma='scale', coef0=0.0, tol=0.001,
+                    shrinking=True, cache_size=200,
+                    verbose=False, max_iter=-1)
+        # model.summary()
+
+        # SVR model training ******************************************
+        history = model.fit(normed_x_train, y_train)
+
+        train_predictions = model.predict(normed_x_train).flatten()
+        r2_train = r2_score(y_train, train_predictions)
+        mae_train = mean_absolute_error(y_train, train_predictions)
+        mse_train = mean_squared_error(y_train, train_predictions)
+        agg_err_train = ((np.sqrt(mse_train) + mae_train) / 2) * (1 - r2_train)
+
+        test_predictions = model.predict(normed_x_test).flatten()
+        r2_test = r2_score(y_test, test_predictions)
+        mae_test = mean_absolute_error(y_test, test_predictions)
+        mse_test = mean_squared_error(y_test, test_predictions)
+        agg_err_test = ((np.sqrt(mse_test) + mae_test) / 2) * (1 - r2_test)
+
+        R1[ny] = r2_train
+
+        # print("\n",Yield.columns[ny])
+        # print("R2 Test for scenario 1: {:5.2f} ".format(r2_test))
+        # print("R2 Train for scenario 1: {:5.2f} ".format(r2_train))
+
+    # *#*#*# Scenario 2 #*#*#*#
+    # !pip install delayed
+    features = np.zeros((Yield.shape[1], county_1_conditions.shape[1]))
+    eff_lag_day = np.zeros((Yield.shape[1]))
+    eff_lag_month = np.zeros((Yield.shape[1]))
+
+    Max_tr = np.array(0.1)
+    Max_te = np.array(0.1)
+    A = 1.3
+    B = 1.2
+
+    from sklearn.svm import SVR
+
+    for ny in range(Yield.shape[1]):
+
+        if ny == 0:
+            Predictors = county_1_conditions
+        else:
+            Predictors = county_2_conditions
+
+        Max_tr = np.array(0.1)
+        Max_te = np.array(0.1)
+
+        # Apply effective lags to the predictors
+        Lag_max = np.max(eff_lag[0, :, ny])
+
+        Y = np.roll(Yield.iloc[:, ny].values, int(-Lag_max), axis=0)[:int(-Lag_max)]
+
+        P_tot1 = np.zeros([Predictors.shape[0] - int(Lag_max), Predictors.shape[1]])
+        for i in range(Predictors.shape[1]):
+            P_tot1[:, i] = np.roll(Predictors.iloc[:, i].values, -int(Lag_max - eff_lag[0, i, ny]))[:-int(Lag_max)]
+
+        # P_tot=np.append(P_tot1, Avg_Y, axis=1)
+        P_tot = P_tot1
+
+        # Split the data into train and test
+        def values(arr):
+
+            if np.sum(arr) < 1:
+                from random import randint
+                arr[randint(0, arr.shape[0] - 1)] = 1
+
+            P = P_tot[:, [arr > 0][0]]
+
+            # Random split
+            from sklearn.model_selection import train_test_split
+            x_train, x_test, y_train, y_test = train_test_split(P, Y, test_size=0.33, random_state=42)
+
+            def norm(x):
+                return (x - np.mean(x, axis=0)) / np.std(x, axis=0)
+
+            normed_x_train = norm(x_train)
+            normed_x_test = norm(x_test)
+
+            # build SVR model  *****************************************
+
+            model = SVR(C=1000, epsilon=0.01, kernel='rbf',
+                        degree=3, gamma='scale', coef0=0.0, tol=0.001,
+                        shrinking=True, cache_size=200,
+                        verbose=False, max_iter=-1)
+            # model.summary()
+
+            # SVR model training ******************************************
+            history = model.fit(normed_x_train, y_train)
+
+            train_predictions = model.predict(normed_x_train).flatten()
+            r2_train = r2_score(y_train, train_predictions)
+            mae_train = mean_absolute_error(y_train, train_predictions)
+            mse_train = mean_squared_error(y_train, train_predictions)
+            agg_err_train = ((np.sqrt(mse_train) + mae_train) / 2) * (1 - r2_train)
+
+            test_predictions = model.predict(normed_x_test).flatten()
+            r2_test = r2_score(y_test, test_predictions)
+            mae_test = mean_absolute_error(y_test, test_predictions)
+            mse_test = mean_squared_error(y_test, test_predictions)
+            agg_err_test = ((np.sqrt(mse_test) + mae_test) / 2) * (1 - r2_test)
+
+            global Max_tr, Max_te
+
+            if r2_train > Max_tr:
+                Max_tr = r2_train
+                Max_te = r2_test
+
+            # Cost=abs(r2_train*A+B*r2_test+((np.mean([(Max_tr)*A,(Max_te)*B])/3+0.15)/(arr.shape[0]/2.7))*arr.shape[0]/np.sum(arr))
+            Cost = abs(r2_train * A + B * r2_test)
+
+            if r2_train < 0 or r2_test < 0:
+                Cost = 0
+
+            return Cost
+
+        # Run feature selection model
+        num_pop = 20
+        problem_dimentions = P_tot.shape[1]
+
+        test = BGA(pop_shape=(num_pop, problem_dimentions), method=values, p_c=0.8, p_m=0.2, max_round=70,
+                   early_stop_rounds=None, verbose=None, maximum=True)
+        best_solution, best_fitness = test.run()
+        features[ny, :] = best_solution
+        eff_lag_day[ny] = round(np.mean(eff_lag[0, features[ny, :] > 0, ny]))
+        eff_lag_month[ny] = round(np.mean(eff_lag[1, features[ny, :] > 0, ny]))
+        # print('\n FP_type: {} \n Best_features: {} \n Effective_daily_lag: {} \n Effective_monthly_lag: {}'.format(Yield.columns[ny],Predictors.columns[features[ny,:]>0],eff_lag_day[ny],eff_lag_month[ny]))
+
+    # Similarity percentage based on the Effective Perdictors and Lag-time- Scenario 2
+    P_lag2 = 100 - (abs(eff_lag_month[0] - eff_lag_month[1]) * 5)
+    P_pred2 = 90 - (sum(abs(features[1, :] - features[0, :])) * 10)
+
+    # Check train and test accuracy- Scenario 1
+    R2 = np.zeros(2)
+    for ny in range(Yield.shape[1]):
+        # print(features[ny,:])
+
+        if ny == 0:
+            Predictors = county_1_conditions
+        else:
+            Predictors = county_2_conditions
+
+        arr = features[ny, :]
+        # Apply effective lags to the predictors
+        Lag_max = eff_lag_day[ny].astype(np.int)
+        # print(Lag_max)
+        Y = np.roll(Yield.iloc[:, ny].values, int(-Lag_max), axis=0)[:int(-Lag_max)]
+        P_tot = Predictors.iloc[:-Lag_max, :].values
+
+        # P_tot=np.zeros([Predictors.shape[0]-int(Lag_max),Predictors.shape[1]])
+        # for i in range(Predictors.shape[1]):
+        # P_tot[:,i]=np.roll(Predictors.iloc[:,i].values,-int(Lag_max-eff_lag[0,i,ny]))[:-int(Lag_max)]
+
+        # Split the data into train and test
+
+        if np.sum(arr) < 1:
+            from random import randint
+            arr[randint(0, arr.shape[0] - 1)] = 1
+
+        P = P_tot[:, [arr > 0][0]]
+
+        ##1. for time series forecast
+        # from sktime.forecasting.model_selection import temporal_train_test_split
+        # from sktime.performance_metrics.forecasting import smape_loss
+        # x_train,x_test=temporal_train_test_split(P, test_size=int(len(P)*0.2))
+        # y_train,y_test=temporal_train_test_split(Y, test_size=int(len(P)*0.2))
+
+        # Random split
+        from sklearn.model_selection import train_test_split
+        x_train, x_test, y_train, y_test = train_test_split(P, Y, test_size=0.33, random_state=42)
+
+        def norm(x):
+            return (x - np.mean(x, axis=0)) / np.std(x, axis=0)
+
+        normed_x_train = norm(x_train)
+        normed_x_test = norm(x_test)
+
+        # build model 2= SVR *****************************************
+
+        model = SVR(C=1000, epsilon=0.01, kernel='rbf',
+                    degree=3, gamma='scale', coef0=0.0, tol=0.001,
+                    shrinking=True, cache_size=200,
+                    verbose=False, max_iter=-1)
+        # model.summary()
+
+        # SVR model training ******************************************
+        history = model.fit(normed_x_train, y_train)
+
+        train_predictions = model.predict(normed_x_train).flatten()
+        r2_train = r2_score(y_train, train_predictions)
+        mae_train = mean_absolute_error(y_train, train_predictions)
+        mse_train = mean_squared_error(y_train, train_predictions)
+        agg_err_train = ((np.sqrt(mse_train) + mae_train) / 2) * (1 - r2_train)
+
+        test_predictions = model.predict(normed_x_test).flatten()
+        r2_test = r2_score(y_test, test_predictions)
+        mae_test = mean_absolute_error(y_test, test_predictions)
+        mse_test = mean_squared_error(y_test, test_predictions)
+        agg_err_test = ((np.sqrt(mse_test) + mae_test) / 2) * (1 - r2_test)
+
+        R2[ny] = r2_train
+
+        # print("\n",Yield.columns[ny])
+        # print("R2 Test for scenario 2: {:5.2f} ".format(r2_test))
+        # print("R2 Train for scenario 2: {:5.2f} ".format(r2_train))
+
+    # Final similarity percentage
+    Prc[1] = np.mean([P_lag1, P_lag2])
+    Prc[2] = np.int(np.mean([P_pred1, P_pred2]) * (1 - abs(np.mean([R1[0], R2[0]]) - np.mean([R1[1], R2[1]]))))
+
+    # Display
+    # print(Prc)
+    # from tabulate import tabulate
+    # my_df= pd.DataFrame(np.transpose(Prc),index=List_Prc,columns=['Percentage of Similarity'])
+    # print("\n",tabulate(my_df, headers='keys', tablefmt='psql'))
+
+    Weighted_Prc = Prc
+    Weighted_Prc[0] = Weighted_Prc[0] * 2
+    Weighted_Prc[2] = Weighted_Prc[2] * 3
+    percentage_similarity = round(np.sum(Weighted_Prc) / 6)
+
+    # print("\n Overal Similarity Percentage = {:5.2f} ".format(Overal))
+
+    if percentage_similarity > 75:
+        binary_similarity=1
+        #binary_similarity = '\n The investigated {} and {} are similar.'.format(Yield.columns[0], Yield.columns[1])
+    else:
+        binary_similarity = 0
+        #binary_similarity = '\n The investigated {} and {} are dissimilar.'.format(Yield.columns[0], Yield.columns[1])
+
+    # print("\n binary_similarity)
+
+    return (percentage_similarity, binary_similarity)
+
+
+'''
+
+
+
+y11=pd.read_csv("Strawberry_Yield.csv")
+y22=pd.read_csv("Oxnard_Imputed.csv")
+d1=y11["Date"]
+d2=y22["Date"]
+y1=y11["Strawberry"]
+y2=y22["Pounds/Acre"]
+y1=y1.tolist()
+y2=y2.tolist()
+
+
+y1,y2,dates=Common_Yield_Window(d1,d2,y1,y2)
+
+
+Similarity_Output(y1,y2,dates)
+'''
+
+
+
