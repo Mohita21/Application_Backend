@@ -35,3 +35,6 @@ Run the *FlaskApp_Main.py* file in the Application folder to serve the Flask App
 - StationTraining: This folder has codes for retraining the station based models.
 - TrainingWeights, SatelliteModels, pcaWeights, sclrWeights: These folder have weights for the different models used in application.
 - *client_secrets.json*, *mycreds.txt*: These files have credentials required for google drive authentication to access the satellite images.
+
+
+
